@@ -1,50 +1,143 @@
 public with sharing class BillAPI {
-    public static void getBills() {
-        /* 
-        Start by creating an HttpRequest object and set the endpoint and method.
-        Endpoint: https://my-json-server.typicode.com/walters954/clicked-intro-development-server/bills
-        Method: GET
-        Learn more about HTTPRequest: https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm
-        */
+  @AuraEnabled(cacheable=true)
+  public static List<Bill__c> searchBills(String searchTerm, String accountId) {
+    String query = 'SELECT Id, Invoice_Number__c, Balance__c, Account__r.Name FROM Bill__c';
+    List<String> conditions = new List<String>();
 
-        // Set up an Http object and an HTTPResponse object, then use the .getBody() method to get the response body.
-
-        // Deserialize the JSON response into a list of BillWrapper objects.
-        // Learn more about JSON.deserialize: https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Json.htm#apex_System_Json_deserialize
-
-        // Create a list to hold the bills we will insert into Salesforce.
-
-        // Query for active accounts (Active__c = 'Yes').
-        // Learn more about SOQL: https://trailhead.salesforce.com/en/content/learn/modules/apex_database/apex_database_soql
-
-        // Create a map to hold active account names and their IDs.
-        // Learn more about Maps: https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm
-
-        // Iterate over the list of active accounts and add their name and ID to the map.
-
-
-        /*
-        Iterate over the list of BillWrapper objects and create a new Bill__c record for each.
-        Match the new bill fields with the properties of the BillWrapper class.
-        For example, for Bill__c.Balance__c, use Decimal.valueOf(bw.balance.replace('$', '')) to convert the balance to a decimal.
-        Remember, DML (Data Manipulation Language) operations should not be inside loops. Learn more about DML: https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_dml_section.htm
-        */
-
-
-        //finally, insert the new bills list
+    if (String.isNotBlank(accountId)) {
+      conditions.add('Account__c = :accountId');
     }
 
-    /*  
-    This is a wrapper class. A wrapper class allows us to create an instance of a class with the properties we specify.
-    In this case, we are creating a class that will hold the properties for BillId, AccountName, and Balance.
-    These properties will be populated from the JSON structure stored in our external data source.
-    Once we get the body of our HTTP callout, we will use the following line of code to transform the response body into a list of instances of our wrapper class, BillWrapper:
-    List<BillWrapper> bwList = (List<BillWrapper>)JSON.deserialize(responseBody, List<BillWrapper>.class);
-    Once we have a list of BillWrapper objects (bwList), we will iterate over the bwList, create a new Bill__c record, and assign the values of the BillWrapper properties to the fields on the Bill__c record.
-    */
-    public class BillWrapper {
-        public String billId;
-        public String accountName;
-        public String balance;
+    if (String.isNotBlank(searchTerm)) {
+      searchTerm = searchTerm.trim();
+      String likeSearchTerm = '%' + String.escapeSingleQuotes(searchTerm) + '%';
+      conditions.add(
+        '(Invoice_Number__c LIKE :likeSearchTerm OR Account__r.Name LIKE :likeSearchTerm OR Balance__c != NULL)'
+      );
     }
+
+    if (!conditions.isEmpty()) {
+      query += ' WHERE ' + String.join(conditions, ' AND ');
+    }
+
+    query += ' ORDER BY CreatedDate DESC';
+
+    System.debug('Query: ' + query);
+    List<Bill__c> results = Database.query(query);
+
+    // If searchTerm is not blank, filter results for Balance
+    if (String.isNotBlank(searchTerm)) {
+      List<Bill__c> filteredResults = new List<Bill__c>();
+      for (Bill__c bill : results) {
+        if (
+          bill.Invoice_Number__c.containsIgnoreCase(searchTerm) ||
+          (bill.Account__r.Name != null &&
+          bill.Account__r.Name.containsIgnoreCase(searchTerm)) ||
+          (bill.Balance__c != null &&
+          String.valueOf(bill.Balance__c).containsIgnoreCase(searchTerm))
+        ) {
+          filteredResults.add(bill);
+        }
+      }
+      results = filteredResults;
+    }
+
+    System.debug('Final results count: ' + results.size());
+    return results;
+  }
+
+  public static void getBills() {
+    try {
+      HttpRequest request = new HttpRequest();
+      request.setEndpoint(
+        'callout:Bill_Callout/grizzleevelyn/231017_dev_clicked/db'
+      );
+      request.setMethod('GET');
+
+      Http httpObject = new Http();
+      HttpResponse response = httpObject.send(request);
+
+      if (response.getStatusCode() != 200) {
+        throw new CalloutException(
+          'HTTP request failed with status code: ' + response.getStatusCode()
+        );
+      }
+
+      String responseBody = response.getBody();
+      Map<String, Object> jsonResponse = (Map<String, Object>) JSON.deserializeUntyped(
+        responseBody
+      );
+      List<Object> billsList = (List<Object>) jsonResponse.get('bills');
+
+      List<BillWrapper> bwList = new List<BillWrapper>();
+      for (Object billObj : billsList) {
+        Map<String, Object> billMap = (Map<String, Object>) billObj;
+        BillWrapper bill = new BillWrapper();
+        bill.billId = (String) billMap.get('billId');
+        bill.accountName = (String) billMap.get('accountName');
+        bill.balance = (String) billMap.get('balance');
+        bwList.add(bill);
+      }
+
+      Map<String, Id> accountMap = new Map<String, Id>();
+      for (Account acc : [
+        SELECT Id, Name
+        FROM Account
+        WHERE Active__c = 'Yes'
+      ]) {
+        accountMap.put(acc.Name, acc.Id);
+      }
+
+      Set<String> invoiceNumbers = new Set<String>();
+      for (BillWrapper bill : bwList) {
+        if (accountMap.containsKey(bill.accountName)) {
+          invoiceNumbers.add(bill.billId);
+        } else {
+          System.debug('Account not found for Bill: ' + bill.billId);
+        }
+      }
+
+      Map<String, Bill__c> existingBillsMap = new Map<String, Bill__c>();
+      for (Bill__c bill : [
+        SELECT Id, Invoice_Number__c
+        FROM Bill__c
+        WHERE Invoice_Number__c IN :invoiceNumbers
+      ]) {
+        existingBillsMap.put(bill.Invoice_Number__c, bill);
+      }
+
+      List<Bill__c> billsToUpsert = new List<Bill__c>();
+      for (BillWrapper bill : bwList) {
+        if (accountMap.containsKey(bill.accountName)) {
+          Bill__c newBill = existingBillsMap.containsKey(bill.billId)
+            ? existingBillsMap.get(bill.billId)
+            : new Bill__c();
+
+          newBill.Invoice_Number__c = bill.billId;
+          newBill.Balance__c = Decimal.valueOf(
+            bill.balance.replace('$', '').trim()
+          );
+          newBill.Account__c = accountMap.get(bill.accountName);
+
+          billsToUpsert.add(newBill);
+        }
+      }
+
+      if (!billsToUpsert.isEmpty()) {
+        upsert billsToUpsert Invoice_Number__c;
+        System.debug('Upserted Bills: ' + billsToUpsert.size());
+      }
+    } catch (Exception e) {
+      System.debug('Error in getBills: ' + e.getMessage());
+      throw new AuraHandledException(
+        'Error fetching and upserting bills: ' + e.getMessage()
+      );
+    }
+  }
+
+  public class BillWrapper {
+    public String billId;
+    public String accountName;
+    public String balance;
+  }
 }

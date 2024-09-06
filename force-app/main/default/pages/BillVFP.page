@@ -29,18 +29,18 @@
         HintL use apex:panelGrid and apex:PanelGroup to display this nicely.
     -->
     <apex:panelGrid columns="2" style="width: 100%">
-        <apex:panelGroup>
+        <apex:panelGroup >
             <h3>Email</h3>
             {!Bill__c.Account__r.Email__c}
         </apex:panelGroup>
 
-        <apex:panelGroup>
+        <apex:panelGroup >
             <h3>Phone</h3>
             {!Bill__c.Account__r.Phone}
             <br/>
         </apex:panelGroup>
 
-        <apex:panelGroup>
+        <apex:panelGroup >
             <h3>Billing Address</h3>
             {!Bill__c.Account__r.BillingStreet}
             <br/> {!Bill__c.Account__r.BillingCity}, {!Bill__c.Account__r.BillingState}, {!Bill__c.Account__r.BillingCountry}
@@ -48,7 +48,7 @@
             <br/>
         </apex:panelGroup>
 
-        <apex:panelGroup>
+        <apex:panelGroup >
             <h3>Shipping Address</h3>
             {!Bill__c.Account__r.ShippingStreet}
             <br/> {!Bill__c.Account__r.ShippingCity}, {!Bill__c.Account__r.ShippingState}, {!Bill__c.Account__r.ShippingCountry}
@@ -65,7 +65,7 @@
         Build a table showing the Bill Summary (Bill Name, Bill Balance, and Bill Id) here.
         Hint: use apex:pageBlockTable to display this in a table.
     -->
-    <apex:pageBlock>
+    <apex:pageBlock >
         <apex:pageBlockTable value="{!record}" var="bill" id="billSummary" style="width: 100%;">
             <apex:facet name="header">Bill Summary</apex:facet>
 
