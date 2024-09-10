@@ -1,4 +1,4 @@
-<apex:page standardController="Bill__c" renderAs="pdf">
+<apex:page standardController="Bill__c" renderAs="pdf" cache="false">
     <!--
         The following outputTexts that are not rendered are used so that we
         can access the values for the fields in a table per documentation here:
