@@ -1,9 +1,4 @@
-// public with sharing class BillScheduler implements Schedulable {
-//   public void execute(SchedulableContext ctx) {
-//     BillBatch bb = new BillBatch();
-//     Database.executeBatch(bb);
-//   }
-// }
+
 public with sharing class BillScheduler implements Schedulable {
   // Regular batch processing without specific bill
   public void execute(SchedulableContext ctx) {

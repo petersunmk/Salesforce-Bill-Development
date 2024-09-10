@@ -1,44 +1,46 @@
+
 <template>
-  <lightning-card title={pageTitle} icon-name="standard:account">
-    <div class="slds-m-around_medium">
+  <lightning-card title={pageTitle}>
+    <div class="slds-p-horizontal_small">
       <lightning-input
-        type="search"
         label="Search Bills"
-        placeholder="Search by Invoice Number, Account Name, or Balance"
         value={searchTerm}
         onchange={handleSearchChange}
-      >
-      </lightning-input>
-    </div>
+      ></lightning-input>
 
-    <template if:true={hasResults}>
-      <table class="slds-table slds-table_cell-buffer slds-table_bordered">
-        <thead>
-          <tr class="slds-line-height_reset">
-            <th>Invoice Number</th>
-            <template if:false={isOnAccountPage}>
-              <th>Account Name</th>
-            </template>
-            <th>Balance</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template for:each={bills} for:item="bill">
-            <tr key={bill.Id}>
-              <td>{bill.Invoice_Number__c}</td>
-              <template if:false={isOnAccountPage}>
-                <td>{bill.Account__r.Name}</td>
-              </template>
-              <td>{bill.formattedBalance}</td>
+      <template if:true={hasResults}>
+        <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+          <thead>
+            <tr>
+              <th scope="col">Invoice Number</th>
+              <th scope="col">Account Name</th>
+              <th scope="col">Balance</th>
             </tr>
-          </template>
-        </tbody>
-      </table>
-    </template>
-    <template if:false={hasResults}>
-      <div class="slds-text-align_center slds-m-around_medium">
-        No bills found.
-      </div>
-    </template>
+          </thead>
+          <tbody>
+            <template for:each={bills} for:item="bill">
+              <tr key={bill.Id}>
+                <!-- Invoice Number as Link -->
+                <td>
+                  <a href={bill.invoiceUrl} target="_blank">
+                    {bill.Invoice_Number__c}
+                  </a>
+                </td>
+                <!-- Account Name as Link -->
+                <td>
+                  <a href={bill.accountUrl} target="_blank">
+                    {bill.Account__r.Name}
+                  </a>
+                </td>
+                <td>{bill.formattedBalance}</td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </template>
+      <template if:false={hasResults}>
+        <p>No bills found.</p>
+      </template>
+    </div>
   </lightning-card>
 </template>

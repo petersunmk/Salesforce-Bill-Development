@@ -1,7 +1,9 @@
+
 import { LightningElement, api, wire } from "lwc";
+import { NavigationMixin } from "lightning/navigation";
 import searchBills from "@salesforce/apex/BillAPI.searchBills";
 
-export default class BillList extends LightningElement {
+export default class BillList extends NavigationMixin(LightningElement) {
   @api recordId;
   bills = [];
   error;
@@ -19,7 +21,9 @@ export default class BillList extends LightningElement {
     if (data) {
       this.bills = data.map((bill) => ({
         ...bill,
-        formattedBalance: this.formatBalance(bill.Balance__c)
+        formattedBalance: this.formatBalance(bill.Balance__c),
+        invoiceUrl: `/lightning/r/Bill__c/${bill.Id}/view`, // Invoice URL
+        accountUrl: `/lightning/r/Account/${bill.Account__c}/view` // Account URL
       }));
       this.error = undefined;
       console.log("Bills retrieved:", this.bills.length);
